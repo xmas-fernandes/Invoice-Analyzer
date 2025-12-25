@@ -8,7 +8,7 @@ Features
 - Web-Ready: Designed to connect to Lovable via Webhooks.
 - Analytics: Outputs category data specifically for pie chart rendering.
 
-Requeirements
+Requierements
 1. n8n version: 1.123.5-exp.0 (Cloud)
 2. Credentials: GDrive OAuth2 or Google Sheets and Gemini AI
 3. External Assets: create Google Sheet file with this header:
