@@ -19,6 +19,14 @@ Setup
 2. Webhook: Go to Lovable app build the web app, copy the Production Webhook URL, set to 'Post', change Sheet ID to yours, check on respond webhook nodes, make it receive chart data according to it, send action: submit (for submitted image or manual input) and action: analyze (for cart data)
 3. JSON Schema: Ensure the Gemini node is set to "JSON" format to ensure the web app can parse the results, or just put Code node after AI Agent node.
 
+
+Author
+Created and Developed by Cana Wedel
+
+Github: @canawedel9
+A creative and development oriented automating process using AI and n8n
+
+
 License
 - This project is licensed under **CC BY-NC 4.0**. 
 - You are free to use it for personal projects, but **commercial redistribution or selling this workflow is prohibited.**
