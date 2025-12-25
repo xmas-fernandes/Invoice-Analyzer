@@ -1,0 +1,1973 @@
+{
+  "name": "Project 1 - Personal Invoice Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Personal-Invoice-Analyzer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1248,
+        80
+      ],
+      "id": "0951817c-6610-4034-9395-99d50407cb16",
+      "name": "Webhook",
+      "webhookId": "0131fd94-59c9-4c0e-8e66-327337518d14"
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.output;\n\n// sanitize AI text → strict JSON\nif (typeof raw === 'string') {\n  raw = raw.trim();\n  raw = raw.replace(/```json|```/gi, '');\n  raw = raw.replace(/,\\s*}/g, '}');\n  raw = raw.replace(/,\\s*]/g, ']');\n}\n\nlet data;\ntry {\n  data = typeof raw === \"string\" ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error(\"AI output is not valid JSON\");\n}\n\nconst pick = (...keys) => {\n  for (const k of keys) {\n    if (data[k] !== undefined && data[k] !== \"\") return data[k];\n  }\n  return null;\n};\n\nconst row = {\n  invoice_id: pick(\"Invoice ID\"),\n  purchase_date: pick(\"Purchase Date\", \"Date\", \"Invoice Date\"),\n  store_name: pick(\"Store Name\", \"Payee\", \"Merchant\"),\n  amount: pick(\"Amount\"),\n  type: pick(\"Type\"),\n  category: pick(\"Category\"),\n  subcategory: pick(\"Subcategory\"),\n  items: pick(\"Items\"),\n  note: pick(\"Note\")\n};\n\nif (row.purchase_date) {\n  row.purchase_date = new Date(row.purchase_date).toISOString().slice(0, 10);\n}\n\nrow.confidence =\n  row.purchase_date && row.amount !== null ? \"medium\" : \"low\";\n\nreturn [{ json: row }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        -464
+      ],
+      "id": "5f4073b0-5ab1-4c18-a56b-c6196c07583f",
+      "name": "Convert to JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8b096163-24b6-466a-a0fb-e4677b3e80d9",
+              "leftValue": "={{ $json.body.image }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "78107ea1-78e3-441a-94e5-fa7318ca2fae",
+              "leftValue": "={{ $('Webhook').item.json.body.purchase_date }}",
+              "rightValue": "[empty]",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1584,
+        -224
+      ],
+      "id": "f25a50d2-929c-4fec-86b3-0209348f2f19",
+      "name": "If Image Uploaded"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get invoice data from OCR / AI\nconst invoiceData = $items(\"Convert to JSON\")[0].json;\n\n// 2. Get generated invoice ID\nconst generatedInvoiceId = $items(\"Name INV-IMG-000x\")[0].json.generated_invoice_id;\n\n// 3. Merge everything into ONE object\nreturn [\n  {\n    json: {\n      \"Invoice ID\": generatedInvoiceId,\n      \"Purchase Date\": invoiceData.purchase_date,\n      \"Store Name\": invoiceData.store_name,\n      \"Amount\": invoiceData.amount,\n      \"Type\": invoiceData.type,\n      \"Category\": invoiceData.category,\n      \"Sub-category\": invoiceData.subcategory,\n      \"Items\": invoiceData.items,\n      \"Note\": invoiceData.note ?? \"\"\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        -576
+      ],
+      "id": "8dd7fac2-1871-46ee-bad0-998a6a059479",
+      "name": "Merge Invoice Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// We only want to append ONCE\n// Take the merged invoice data and return a single item\n\nconst invoice = $items(\"Merge Invoice Data\")[0].json;\n\nreturn [\n  {\n    json: invoice\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4032,
+        -672
+      ],
+      "id": "68b57184-7bc1-4e68-9b04-d4cfca1958f1",
+      "name": "Get Only The New Data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d5d143e8-3124-4223-bf0d-b3a1f2583e1a",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "5a8655ec-560e-4244-a9b3-30a5a4ec346b",
+              "name": "invoice_id",
+              "value": "={{ $('Get Only The New Data').item.json['Invoice ID'] }}",
+              "type": "string"
+            },
+            {
+              "id": "2f2146f1-27be-4827-9767-0d77f9b5f7ba",
+              "name": "message",
+              "value": "\"Invoice successfully added to spreadsheet\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4464,
+        -1024
+      ],
+      "id": "15ec5b71-82d2-4cbb-9727-d4b13ffffa6b",
+      "name": "Edit Fields",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.image",
+        "binaryPropertyName": "image",
+        "options": {
+          "fileName": "={{ $json.body.filename }}",
+          "mimeType": "image/jpeg"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1952,
+        -464
+      ],
+      "id": "7357fc34-afab-4ce2-9e13-a13ff7532817",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        -304
+      ],
+      "id": "c0b4cb96-daf9-45af-af0a-f7e71251268f",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ZvxGUkO3yMCzo7sv",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        -48
+      ],
+      "id": "f9b0b959-5e71-4c37-927c-c745a229ba80",
+      "name": "Read Sheet MNL",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get all rows from Read Sheet\nconst rows = $items(\"Read Sheet IMG No-ID\");\n\n// 2. Extract only INV-IMG-xxxx invoice IDs\nconst numbers = rows\n  .map(r => r.json[\"Invoice ID\"])\n  .filter(id => typeof id === \"string\" && id.startsWith(\"INV-IMG-\"))\n  .map(id => parseInt(id.replace(\"INV-IMG-\", \"\"), 10))\n  .filter(n => !isNaN(n));\n\n// 3. Find next number\nconst lastNumber = numbers.length ? Math.max(...numbers) : 0;\nconst nextNumber = lastNumber + 1;\n\n// 4. Generate invoice ID\nconst generatedInvoiceId = `INV-IMG-${String(nextNumber).padStart(4, \"0\")}`;\n\n// 5. Return ONE item\nreturn [\n  {\n    json: {\n      generated_invoice_id: generatedInvoiceId\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        -576
+      ],
+      "id": "aa0aa692-b438-43b8-82d6-779009e0a292",
+      "name": "Name INV-IMG-000x"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c7297f15-3ce4-46db-bd6d-69ff7acef4c7",
+              "name": "Purchase date",
+              "value": "={{ $('Webhook').item.json.body.purchase_date }}",
+              "type": "string"
+            },
+            {
+              "id": "801c7d64-12bc-47f8-8598-3c6f8fa3b0f5",
+              "name": "Store name",
+              "value": "={{ $('Webhook').item.json.body.store_name }}",
+              "type": "string"
+            },
+            {
+              "id": "0d52ad55-7aec-423c-b9a3-8113ad8066e1",
+              "name": "Amount",
+              "value": "={{ $('Webhook').item.json.body.amount }}",
+              "type": "number"
+            },
+            {
+              "id": "beb95a92-4fc1-4ba6-8cf8-df893f827039",
+              "name": "Category",
+              "value": "={{ $('Webhook').item.json.body.category }}",
+              "type": "string"
+            },
+            {
+              "id": "fb0c0796-73a6-4e49-b75e-d40b78043379",
+              "name": "Subcategory",
+              "value": "={{ $('Webhook').item.json.body.sub_category }}",
+              "type": "string"
+            },
+            {
+              "id": "59f5902a-d199-4933-b8f2-185487e35162",
+              "name": "Items",
+              "value": "={{ $('Webhook').item.json.body.items }}",
+              "type": "string"
+            },
+            {
+              "id": "047071e0-bb71-45a6-8d28-a7fcc9130b71",
+              "name": "Note",
+              "value": "={{ $('Webhook').item.json.body.note }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        -48
+      ],
+      "id": "63480f0f-caa5-4dd3-b0e2-5716f76c08a9",
+      "name": "Choose Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoiceData = $input.all().map((item) => item.json)[0];\nconst chooseData = $(\"Choose Data\")\n  .all()\n  .map((item) => item.json)[0];\n\nconst mergedData = {\n  ...chooseData,\n  invoiceId: invoiceData.generated_invoice_id,\n};\n\nreturn [{ json: mergedData }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2848,
+        48
+      ],
+      "id": "00ccd593-1945-4d9c-946e-d2b11a39b116",
+      "name": "Merge Invoice Data MNL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "K87256463388957"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "image"
+            },
+            {
+              "name": "language",
+              "value": "eng"
+            },
+            {
+              "name": "isOverlayRequired",
+              "value": "false"
+            },
+            {
+              "name": "ocrengine",
+              "value": "2"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1120,
+        -1056
+      ],
+      "id": "c233e513-188a-4d9e-8ba3-c8ae37c23930",
+      "name": "HTTP Request1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "161ac8af-2b79-4474-960c-a38256e09200",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "={{ $json['Purchase Date'] }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2416,
+        -48
+      ],
+      "id": "b4b2d29a-b50c-4e13-bf1e-0d7387701ac9",
+      "name": "If not in sheet yet MNL"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const b64 = $json.body?.image || '';\n\nconst cleaned = b64.includes(',')\n  ? b64.split(',')[1]\n  : b64;\n\nreturn {\n  json: {\n    body: {\n      image: cleaned,\n      filename: $json.body?.filename || 'invoice.jpg'\n    }\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        -464
+      ],
+      "id": "05c7a971-2360-4e68-8a08-2723850fa2b1",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an invoice extraction assistant.\nInput: one invoice image\nTask: Extract invoice data from the provided image and return valid JSON only.\n\nExtract fields:\nInvoice ID, Purchase Date (format: yyyy-mm-dd, zero-padded, e.g. 2024-03-07), Store Name, Amount (number only), Type, Category, Subcategory, Items, Note.\n\nRules:\n• Type = \"Expense\"\n• Category = one of:\nFood & Dining, Transportation, Housing, Healthcare, Shopping, Entertainment, Bills & Services, Education, Saving & Investment, Other\n• Subcategories = one of:\n1. Food & Dining: Grocery, Restaurant, Cafe, Takeout, Other\n2. Transportation: gasoline, parking, public transport, vehicle maintenance, taxi, ojek online, Other\n3. Housing: Rent, Utilities, Internet, Phone, House Maintenance, Other\n4. Healthcare: Doctor Visit, Pharmacy, insurance, Gym/Fitness, Other\n5. Shopping: Clothing, Electronics, Homegoods, Personal Care, Make up, Skincare, Other\n6. Entertaintment: Snack, Movie, Subscriptions, Hobbies, Games, Other\n7. Bills & Services: Banking fees, Pro-services, Insurances, Non-health, Other\n8. Education: Stationary, Course, Tuition Fee, Study Materials, Other\n9. Saving & Investment: Saving, Investment, Other \n10. Other: Lost/Miscellaneous, Gifft, Donate, One Time Expenses, Other\n\n• Items = comma-separated item names\n• If unreadable, use defaults:\nInvoice ID: null\nPurchase Date: today\nStore Name: \"Unknown\"\nAmount: 0\nCategory: \"Other\"\nSubcategory: \"Other\"\nItems: \"\"\nNote: \"\"\n\nOutput:\nYou MUST return strict RFC8259 JSON. No trailing commas. No markdown. No code fences",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        2128,
+        -464
+      ],
+      "id": "3f8c527c-773b-4620-8548-4619830a4996",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2848,
+        -304
+      ],
+      "id": "e9d03264-de48-4cea-918b-600b29427a95",
+      "name": "Read Sheet IMG ID",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cac31293-e938-45e9-b5e5-3ca451d538a8",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3232,
+        -304
+      ],
+      "id": "c57a728e-30b9-4c58-bd42-3f1756fd7740",
+      "name": "If Duplicate IMG ID"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2384,
+        352
+      ],
+      "id": "af3baaa7-fedb-4c92-8746-b0e62dacd328",
+      "name": "Return Chart Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "submit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1b94539d-9e3b-4376-ba45-a67722c4da23"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Submit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9daff73b-6b40-4b3d-9390-958e4004ba9a",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "analytics",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Analytics"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1392,
+        80
+      ],
+      "id": "13c94ab0-efd9-4aa1-bd89-486056742831",
+      "name": "Route by Action",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"isDuplicate\": true,\n  \"existingData\": {{ JSON.stringify($json.existingData) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4704,
+        -176
+      ],
+      "id": "56807484-a29e-4952-b53e-ec5e419133be",
+      "name": "Duplicate Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const newData = $('Merge Invoice Data').item.json;\n\n// normalize helpers\nconst norm = v => String(v || '').trim().toLowerCase();\nconst normDate = v => String(v || '').slice(0, 10);\n\n// read sheet rows\nconst existingInvoices = $('Read Sheet IMG No-ID2').all();\n\nlet duplicate = null;\n\nfor (const row of existingInvoices) {\n  const r = row.json;\n\n  const sameDate   = normDate(r['Purchase Date']) === normDate(newData['Purchase Date']);\n  const sameStore  = norm(r['Store Name']) === norm(newData['Store Name']);\n  const sameAmount = Number(r['Amount']) === Number(newData['Amount']);\n\n  if (sameDate && sameStore && sameAmount) {\n    duplicate = r;\n    break;\n  }\n}\n\nreturn [\n  {\n    json: {\n      isDuplicate: duplicate !== null,\n      existingData: duplicate\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3632,
+        -576
+      ],
+      "id": "a29d1df5-c674-48aa-9ac4-0c4ce58a8bfb",
+      "name": "Deduplicate IMG No-ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ALWAYS read the new invoice from Convert to JSON\nconst newInvoiceId = $('Convert to JSON').item.json.invoice_id;\n\n// Read all existing rows from sheet\nconst existingInvoices = $('Read Sheet IMG ID').all();\n\nlet duplicate = null;\n\nfor (const row of existingInvoices) {\n  if (row.json['Invoice ID'] === newInvoiceId) {\n    duplicate = row.json;\n    break;\n  }\n}\n\nreturn [\n  {\n    json: {\n      ...$('Convert to JSON').item.json,\n      isDuplicate: duplicate !== null,\n      existingData: duplicate\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        -304
+      ],
+      "id": "fcf2fa37-2d01-4120-8414-e4eb82c4f8ae",
+      "name": "Deduplicate IMG ID"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3424,
+        -576
+      ],
+      "id": "25588d0d-3659-4f28-b243-4ef35c5bb7fe",
+      "name": "Read Sheet IMG No-ID2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2848,
+        -576
+      ],
+      "id": "d2ee9522-ad44-4bb0-9b59-3987f160634e",
+      "name": "Read Sheet IMG No-ID",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"action\": \"analytics\",\n  \"month\": \"2025-11\",\n  \"category\": \"All Categories\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        896
+      ],
+      "id": "fd85b210-d449-414f-abfb-74dd47a9dda9",
+      "name": "Mock Analytics Request",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        352
+      ],
+      "id": "504c8659-dd94-4733-94f9-71dc72bff72a",
+      "name": "Read All Invoices",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Incoming (from Choose Data)\nconst incoming = $('Choose Data').item.json;\n\n// Normalize incoming\nconst inDate = String(incoming['Purchase date']).trim();\nconst inStore = String(incoming['Store name']).trim().toLowerCase();\nconst inAmount = Number(incoming['Amount']);\nconst inCategory = String(incoming['Category']).trim().toLowerCase();\n\n// Read sheet\nconst rows = $('Read Sheet MNL').all();\n\nlet duplicate = null;\n\nfor (const row of rows) {\n  const r = row.json;\n\n  // Normalize sheet row\n  const rDate = String(r['Purchase Date']).trim();\n  const rStore = String(r['Store Name']).trim().toLowerCase();\n  const rAmount = Number(r['Amount']);\n  const rCategory = String(r['Category']).trim().toLowerCase();\n\n  const same =\n    rDate === inDate &&\n    rStore === inStore &&\n    rAmount === inAmount &&\n    rCategory === inCategory;\n\n  if (same) {\n    duplicate = r;\n    break;\n  }\n}\n\nreturn [\n  {\n    json: {\n      ...incoming,\n      isDuplicate: duplicate !== null,\n      existingData: duplicate\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        -48
+      ],
+      "id": "6bea9a6f-f206-491c-b2b7-70a7aa08d86a",
+      "name": "Deduplicate MNL"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Invoice ID": "={{ $json['Invoice ID'] }}",
+            "Amount": "={{ $json.Amount }}",
+            "Purchase Date": "={{ $json['Purchase Date'] }}",
+            "Store Name": "={{ $json['Store Name'] }}",
+            "Type": "={{ $json.Type }}",
+            "Category": "={{ $json.Category }}",
+            "Sub-category": "={{ $json['Sub-category'] }}",
+            "Items": "={{ $json.Items }}",
+            "Note": "={{ $json.Note }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice ID",
+              "displayName": "Invoice ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Purchase Date",
+              "displayName": "Purchase Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Store Name",
+              "displayName": "Store Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sub-category",
+              "displayName": "Sub-category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Items",
+              "displayName": "Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Note",
+              "displayName": "Note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4240,
+        -672
+      ],
+      "id": "8a7a9c8b-2cdd-4514-8204-6e869f81e837",
+      "name": "Add to Sheet IMG ID",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d1b678ab-a3c4-4592-b17e-59130e74d2e2",
+              "leftValue": "={{ $json.invoice_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2640,
+        -464
+      ],
+      "id": "d6a43243-e860-4d7f-b516-7029e09272c1",
+      "name": "If Invoice ID not exist"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e283aba2-ba3d-4833-a531-ac77ea9ef4ed",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "={{ $items(\"Merge Invoice Data\")[0].json[\"Invoice ID\"] }}\n",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3840,
+        -576
+      ],
+      "id": "b191668a-0114-49a4-b531-45df1cfd87c8",
+      "name": "If Duplicate IMG No-ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ba9435ba-eacc-4c00-be56-555b755a1d93",
+              "name": "month",
+              "value": "={{ $json.body.month || new Date().toISOString().slice(0,7) }}",
+              "type": "string"
+            },
+            {
+              "id": "8e322144-d28f-4b99-9a39-ed72fc0d0353",
+              "name": "category",
+              "value": "={{ $json.body.category || 'All Categories' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1584,
+        352
+      ],
+      "id": "41035896-9921-49b6-a7c7-0077c69bba1c",
+      "name": "Prepare Analytics Input"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d6082593-f14b-4845-978d-1d8b2338c47e",
+              "name": "labels",
+              "value": "={{$json.labels}}",
+              "type": "array"
+            },
+            {
+              "id": "0fed52ba-29b2-456d-8a8b-1a8acca33e60",
+              "name": "values",
+              "value": "={{$json.values}}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2192,
+        352
+      ],
+      "id": "f79eb60e-50dc-4aba-b109-e81993b7365a",
+      "name": "Format Chart Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { month, category } = $('Prepare Analytics Input').first().json;\nconst invoices = $('Read All Invoices').all();\n\nconst filtered = invoices.filter(i => {\n  const d = String(i.json['Purchase Date'] || '');\n  return d.startsWith(month);\n});\n\nconst map = {};\n\nfor (const i of filtered) {\n  const cat = i.json['Category'];\n  const sub = i.json['Sub-category'];\n  const key =\n    category === 'All Categories'\n      ? cat\n      : (cat === category ? sub : null);\n\n  if (!key) continue;\n\n  map[key] = (map[key] || 0) + Number(i.json['Amount'] || 0);\n}\n\nreturn [{\n  json: {\n    labels: Object.keys(map),\n    values: Object.values(map)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        352
+      ],
+      "id": "87d4a161-6a1a-4a27-a83f-7d6c2210bb77",
+      "name": "Filter & Aggregate Data by Category"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb6d4dc5-be16-4a9e-893c-30734b49a799",
+              "name": "analyzedData",
+              "value": "={{$json}}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4432,
+        -672
+      ],
+      "id": "a1d4cfdc-979d-4ebf-8f69-8ab41b847f2c",
+      "name": "Payload IMG No-ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb6d4dc5-be16-4a9e-893c-30734b49a799",
+              "name": "analyzedData",
+              "value": "={{$json}}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3632,
+        -240
+      ],
+      "id": "801869f3-4d70-4719-b502-9faceb6321a1",
+      "name": "Payload IMG ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb6d4dc5-be16-4a9e-893c-30734b49a799",
+              "name": "analyzedData",
+              "value": "={{$json}}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3248,
+        48
+      ],
+      "id": "89c8f0e9-1ecb-4255-9f36-91f9253a1e3d",
+      "name": "Payload MNL"
+    },
+    {
+      "parameters": {
+        "content": "## Pie Chart Branch\n- get \"month\" and \"category\" data\n- get data from sheet\n- filter sheet per category or sub-category and aggregate for chart data",
+        "height": 320,
+        "width": 1024
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1536,
+        224
+      ],
+      "typeVersion": 1,
+      "id": "84dea44f-171f-43d8-b561-1a301ec478d1",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Manual Input Branch\n- data input by user manually processed\n- check for duplication",
+        "height": 352,
+        "width": 832,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1728,
+        -144
+      ],
+      "typeVersion": 1,
+      "id": "d5541cb7-c2f2-4698-9c70-455763d0c340",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Invoice ID": "={{ $json.invoice_id }}",
+            "Purchase Date": "={{ $json.purchase_date }}",
+            "Store Name": "={{ $json.store_name }}",
+            "Amount": "={{ $json.amount }}",
+            "Type": "={{ $json.type }}",
+            "Category": "={{ $json.category }}",
+            "Sub-category": "={{ $json.subcategory }}",
+            "Items": "={{ $json.items }}",
+            "Note": "={{ $json.note }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice ID",
+              "displayName": "Invoice ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Purchase Date",
+              "displayName": "Purchase Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Store Name",
+              "displayName": "Store Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sub-category",
+              "displayName": "Sub-category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Items",
+              "displayName": "Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Note",
+              "displayName": "Note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3408,
+        -240
+      ],
+      "id": "f97e1fa9-4456-4434-9665-82855af1dd9f",
+      "name": "Add to Sheet IMG ID1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8",
+          "mode": "list",
+          "cachedResultName": "Project 1_Personal Invoice Analyzer Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBUjhSmsEXRUfZ9Vh_uh4OGCePAYysHDY8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Sub-category": "={{ $json.Subcategory }}",
+            "Category": "={{ $json.Category }}",
+            "Type": "Expense",
+            "Amount": "={{ $json.Amount }}",
+            "Store Name": "={{ $json['Store name'] }}",
+            "Purchase Date": "={{ $json['Purchase date'] }}",
+            "Invoice ID": "={{ $json.invoiceId }}",
+            "Note": "={{ $json.Note }}",
+            "Items": "={{ $json.Items }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice ID",
+              "displayName": "Invoice ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Purchase Date",
+              "displayName": "Purchase Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Store Name",
+              "displayName": "Store Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sub-category",
+              "displayName": "Sub-category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Items",
+              "displayName": "Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Note",
+              "displayName": "Note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3056,
+        48
+      ],
+      "id": "263efdce-4e99-4e30-8368-163edef88180",
+      "name": "Add to Sheet MNL",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "U153ruykKbsqFmVF",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Webhook Trigger\nGet submit data and analytic data",
+        "height": 768,
+        "width": 272,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        -224
+      ],
+      "typeVersion": 1,
+      "id": "98ec9007-a636-4080-9768-a6d1608e452f",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## New Data Branch",
+        "height": 208,
+        "width": 832,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2576,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "8a5508fe-ef0a-428b-b615-723c058f854f",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Image Input Branch\n- Prepare image for AI Agent\n- Analyzed Image by AI Agent\n- Decide if image have ID or not",
+        "height": 528,
+        "width": 1056,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1728,
+        -688
+      ],
+      "typeVersion": 1,
+      "id": "d54e0b4b-a188-460b-9749-bbfe3efc03c5",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get all rows from Read Sheet\nconst rows = $items(\"Read Sheet MNL\");\n\n// 2. Extract only INV-MNL-xxxx invoice IDs\nconst numbers = rows\n  .map(r => r.json[\"Invoice ID\"])\n  .filter(id => typeof id === \"string\" && id.startsWith(\"INV-MNL-\"))\n  .map(id => parseInt(id.replace(\"INV-MNL-\", \"\"), 10))\n  .filter(n => !isNaN(n));\n\n// 3. Find next number\nconst lastNumber = numbers.length ? Math.max(...numbers) : 0;\nconst nextNumber = lastNumber + 1;\n\n// 4. Generate invoice ID\nconst generatedInvoiceId = `INV-MNL-${String(nextNumber).padStart(4, \"0\")}`;\n\n// 5. Return ONE item\nreturn [\n  {\n    json: {\n      generated_invoice_id: generatedInvoiceId\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2624,
+        48
+      ],
+      "id": "57fd9a3b-635d-44cc-8cd0-7dc88362be03",
+      "name": "Name INV-MNL-000x"
+    },
+    {
+      "parameters": {
+        "content": "## Image without ID Branch\n- add new ID and deduplicate\n- add to sheet if new",
+        "height": 272,
+        "width": 1792,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2800,
+        -688
+      ],
+      "typeVersion": 1,
+      "id": "1c3604f9-762a-4ee6-ad48-c80f974d3369",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Image with ID Branch\n- check duplicate\n- add to sheet if new",
+        "height": 304,
+        "width": 1792,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2800,
+        -400
+      ],
+      "typeVersion": 1,
+      "id": "6cd493eb-707a-4cf2-8573-9068efe3ca38",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n  {\n    isDuplicate: false,\n    message: \"Invoice successfully added to spreadsheet\",\n    analyzedData: $json.analyzedData,\n    sheetUrl: \"https://docs.google.com/spreadsheets/d/1u8Rch2eVdJBJhSmsEXRUFZ9Vh_uh40GcEPAYysHDY8/edit\"\n  }\n}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "=Content-Type",
+                "value": "=application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4704,
+        32
+      ],
+      "id": "a93e7fc7-f431-4dba-8950-b3e94c432e80",
+      "name": "New Data Response"
+    }
+  ],
+  "pinData": {
+    "Mock Analytics Request": [
+      {
+        "json": {
+          "action": "analytics",
+          "month": "2025-11",
+          "category": "All Categories"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to JSON": {
+      "main": [
+        [
+          {
+            "node": "If Invoice ID not exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Image Uploaded": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Choose Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Invoice Data": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet IMG No-ID2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Only The New Data": {
+      "main": [
+        [
+          {
+            "node": "Add to Sheet IMG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        []
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet MNL": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name INV-IMG-000x": {
+      "main": [
+        [
+          {
+            "node": "Merge Invoice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choose Data": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Invoice Data MNL": {
+      "main": [
+        [
+          {
+            "node": "Add to Sheet MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        []
+      ]
+    },
+    "If not in sheet yet MNL": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Name INV-MNL-000x",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Convert to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet IMG ID": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate IMG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Duplicate IMG ID": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add to Sheet IMG ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "If Image Uploaded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Analytics Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Deduplicate IMG No-ID": {
+      "main": [
+        [
+          {
+            "node": "If Duplicate IMG No-ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate IMG ID": {
+      "main": [
+        [
+          {
+            "node": "If Duplicate IMG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet IMG No-ID2": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate IMG No-ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet IMG No-ID": {
+      "main": [
+        [
+          {
+            "node": "Name INV-IMG-000x",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Analytics Request": {
+      "main": [
+        []
+      ]
+    },
+    "Read All Invoices": {
+      "main": [
+        [
+          {
+            "node": "Filter & Aggregate Data by Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate MNL": {
+      "main": [
+        [
+          {
+            "node": "If not in sheet yet MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Sheet IMG ID": {
+      "main": [
+        [
+          {
+            "node": "Payload IMG No-ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Invoice ID not exist": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet IMG No-ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Sheet IMG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Duplicate IMG No-ID": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Only The New Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Analytics Input": {
+      "main": [
+        [
+          {
+            "node": "Read All Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Chart Payload": {
+      "main": [
+        [
+          {
+            "node": "Return Chart Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Aggregate Data by Category": {
+      "main": [
+        [
+          {
+            "node": "Format Chart Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Response": {
+      "main": [
+        []
+      ]
+    },
+    "Payload IMG No-ID": {
+      "main": [
+        [
+          {
+            "node": "New Data Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload IMG ID": {
+      "main": [
+        [
+          {
+            "node": "New Data Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload MNL": {
+      "main": [
+        [
+          {
+            "node": "New Data Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Sheet IMG ID1": {
+      "main": [
+        [
+          {
+            "node": "Payload IMG ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Sheet MNL": {
+      "main": [
+        [
+          {
+            "node": "Payload MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name INV-MNL-000x": {
+      "main": [
+        [
+          {
+            "node": "Merge Invoice Data MNL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "64a02f6f-44cc-4839-adcc-e4285635dc7e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc137e447612f37a83e015bbe8dd3348f0d11bbe136a670ae91af7f0ddd8614b"
+  },
+  "id": "BTzG7ZJif4cAPoyZ",
+  "tags": []
+}
