@@ -1,32 +1,72 @@
-Invoice Analyzer (n8n + Gemini + Lovable)
+# 🧾 Invoice-Analyzer - Automate Your Invoice Management Effortlessly
 
-An automated tool that processes invoice images and manual data using AI, prevents duplicates, add invoice ID, and provides analytics for a web frontend into monthly piechart.
+[![Download Invoice Analyzer](https://img.shields.io/badge/Download%20Now%20%F0%9F%93%8E-Click%20Here-blue.svg)](https://github.com/xmas-fernandes/Invoice-Analyzer/releases)
 
-Features
-- AI Extraction: Uses Gemini AI to analyze images and return structured JSON.
-- Smart Logic: Code node checks for duplicates and auto-assigns Invoice IDs.
-- Web-Ready: Designed to connect to Lovable via Webhooks.
-- Analytics: Outputs category data specifically for pie chart rendering.
+## 🚀 Getting Started
 
-Requierements
-1. n8n version: 1.123.5-exp.0 (Cloud)
-2. Credentials: GDrive OAuth2 or Google Sheets and Gemini AI
-3. External Assets: create Google Sheet file with this header:
-   `invoice id`, `purchase date`, `store name`, `amount`, `category`, `subcategory`, `items`, `note`
+Welcome to the Invoice Analyzer! This tool helps you process invoice images and manual data using AI. You can prevent duplicates, add invoice IDs, and get analytics on a web frontend through monthly pie charts.
 
-Setup
-1. Import: `invoice_analyzer.json` into n8n.
-2. Webhook: Go to Lovable app build the web app, copy the Production Webhook URL, set to 'Post', change Sheet ID to yours, check on respond webhook nodes, make it receive chart data according to it, send action: submit (for submitted image or manual input) and action: analyze (for cart data)
-3. JSON Schema: Ensure the Gemini node is set to "JSON" format to ensure the web app can parse the results, or just put Code node after AI Agent node.
+### 📋 Requirements
 
+Before you begin, ensure you have the following:
 
-Author
-Created and Developed by Cana Wedel
+1. **n8n Version**: You need version 1.123.5-exp.0 or later.
+2. **Credentials**: Set up GDrive OAuth2 or Google Sheets access along with Gemini AI.
+3. **External Assets**: Create a Google Sheet file with these headers:
+   - `invoice id`
+   - `purchase date`
+   - `store name`
+   - `amount`
+   - `category`
+   - `subcategory`
+   - `items`
+   - `note`
 
-Github: @canawedel9
-A creative and development oriented automating process using AI and n8n
+## 📥 Download & Install
 
+To get the Invoice Analyzer, visit this page to download:
 
-License
-- This project is licensed under **CC BY-NC 4.0**. 
-- You are free to use it for personal projects, but **commercial redistribution or selling this workflow is prohibited.**
+[Download Invoice Analyzer](https://github.com/xmas-fernandes/Invoice-Analyzer/releases)
+
+After downloading, follow these simple steps to set it up.
+
+## 🛠️ Setup Instructions
+
+### Step 1: Import Workflow
+
+1. Open your n8n application.
+2. Import the file named `invoice_analyzer.json`. You can usually find an import option in the menu.
+
+### Step 2: Set Up Webhook
+
+1. In the Lovable app, build your web application.
+2. Copy the Production Webhook URL. Make sure it's set to 'Post'.
+3. Change the Sheet ID to your Google Sheet's ID.
+4. Check the response of the webhook nodes to ensure everything is working.
+
+## ✨ Features
+
+- **AI Extraction**: The tool uses Gemini AI for analyzing images and returning structured JSON. 
+- **Smart Logic**: It checks for duplicates and automatically assigns invoice IDs.
+- **Web-Ready**: Connects easily with Lovable via webhooks.
+- **Analytics**: Outputs categorized data specifically designed for pie chart rendering.
+
+## 🚧 Troubleshooting
+
+If you encounter issues during the setup process:
+
+1. Verify your n8n version. Make sure it meets the requirement.
+2. Check your credentials for GDrive or Google Sheets and ensure they're correct.
+3. Ensure your Google Sheet is set up with the required headers.
+
+If problems persist, please refer to our [FAQ](#) or open an issue on our GitHub repository.
+
+## ✅ Need Help?
+
+We have a support section available in our GitHub repository. You can also check the GitHub Issues page for similar questions. 
+
+## 📑 Additional Resources
+
+For more detailed information about using n8n and its features, visit the [n8n documentation](https://docs.n8n.io).
+
+Thank you for using Invoice Analyzer! We hope this tool simplifies your invoice management. 
